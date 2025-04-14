@@ -2,8 +2,12 @@ import re
 import os
 import asyncio
 import httpx
+from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
+
+# Initialize Flask app (required for Render to assign a port)
+app = Flask(__name__)
 
 # Telegram API credentials
 api_id = 22092598
@@ -14,8 +18,14 @@ session_name = "cc_scraper"
 group_id = (-1002682944548, -1001793269672)
 channel_id = -1002698542107  # Channel to send results
 
-from telethon.sessions import StringSession
-client = TelegramClient(StringSession(os.getenv("STRING_SESSION")), api_id, api_hash)
+# Fetching the STRING_SESSION environment variable
+session_string = os.getenv("STRING_SESSION")
+if not session_string:
+    print("Error: STRING_SESSION environment variable is not set!")
+    exit(1)  # Exit if no session is found
+
+# Initialize the Telegram client with StringSession
+client = TelegramClient(StringSession(session_string), api_id, api_hash)
 
 # Patterns to match CCs
 cc_patterns = [
@@ -88,5 +98,15 @@ async def main():
     print("✅ CC Scraper Running...")
     await client.run_until_disconnected()
 
+# Flask route to allow the web server to listen on Render's required port
+@app.route('/')
+def index():
+    return "Bot is running!"
+
 if __name__ == "__main__":
+    # Run Flask app, bind to the port Render provides (PORT environment variable)
+    from threading import Thread
+    t = Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8000))))
+    t.start()
+    # Run the bot in the background
     asyncio.run(main())
