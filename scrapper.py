@@ -96,10 +96,5 @@ async def main():
     print("✅ Telegram Scraper Running...")
     await client.run_until_disconnected()
 
-# Put this at bottom of scrapper.py
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(client.start())
-    loop.create_task(main())  # your cc listener logic
-    threading.Thread(target=run_flask).start()
-    loop.run_forever()
+    asyncio.run(main())
