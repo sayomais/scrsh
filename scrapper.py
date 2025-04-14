@@ -1,7 +1,9 @@
 import re
+import os
 import asyncio
 import httpx
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 
 # Telegram API credentials
 api_id = 22092598
