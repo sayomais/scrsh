@@ -3,23 +3,10 @@ import re
 import asyncio
 import threading
 import httpx
-from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
-# Flask setup
-app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Userbot Scraper is Live!"
-
-# Flask runner
-def run_flask():
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
-
-# Start Flask in a separate thread
-threading.Thread(target=run_flask).start()
 
 # Telegram setup
 api_id = 22092598
