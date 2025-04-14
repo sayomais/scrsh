@@ -1,54 +1,53 @@
-import re
 import os
+import re
 import asyncio
 import httpx
+import threading
 from flask import Flask
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
 
-# Initialize Flask app (required for Render to assign a port)
-app = Flask(__name__)
-
 # Telegram API credentials
 api_id = 22092598
 api_hash = "93de73c78293c85fd6feddb92f91b81a"
-session_name = "cc_scraper"
+client = TelegramClient(StringSession(os.getenv("STRING_SESSION")), api_id, api_hash)
 
 # Telegram groups to scrape from
 group_id = (-1002682944548, -1001793269672)
 channel_id = -1002698542107  # Channel to send results
 
-# Fetching the STRING_SESSION environment variable
-session_string = os.getenv("STRING_SESSION")
-if not session_string:
-    print("Error: STRING_SESSION environment variable is not set!")
-    exit(1)  # Exit if no session is found
-
-# Initialize the Telegram client with StringSession
-client = TelegramClient(StringSession(session_string), api_id, api_hash)
-
-# Patterns to match CCs
+# CC matching patterns
 cc_patterns = [
     r'(\d{13,16})[\s|/|\-|~]?\s*(\d{1,2})[\s|/|\-|~]?\s*(\d{2,4})[\s|/|\-|~]?\s*(\d{3,4})',
     r'(\d{13,16})\n(\d{1,2})\n(\d{2,4})\n(\d{3,4})',
     r'(\d{13,16})\s(\d{1,2})\s(\d{2,4})\s(\d{3,4})'
 ]
 
-# Already sent CCs
 sent_ccs = set()
 
-# Format CC to standard format
+# Flask server (for Render)
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return 'Scraper Bot is running!'
+
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 10000)))
+
+threading.Thread(target=run_flask).start()
+
+# Format and get BIN info
 def format_cc(match):
     cc, mm, yy, cvv = match.groups()
     yy = yy[-2:]  # Convert YYYY to YY
     return f"{cc}|{mm}|{yy}|{cvv}"
 
-# Get BIN information
 async def get_bin_info(bin_number):
     url = f"https://bins.antipublic.cc/bins/{bin_number}"
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient() as session:
         try:
-            response = await client.get(url, timeout=10)
+            response = await session.get(url, timeout=10)
             data = response.json()
             return {
                 "country": data.get("country_name", "Unknown"),
@@ -59,7 +58,7 @@ async def get_bin_info(bin_number):
         except:
             return {"country": "Unknown", "flag": "🏳", "bank": "Unknown", "type": "Unknown"}
 
-# Scraper event
+# Main scraper logic
 @client.on(events.NewMessage(chats=group_id))
 async def fast_scraper(event):
     text = event.raw_text
@@ -70,14 +69,13 @@ async def fast_scraper(event):
             formatted_cc = format_cc(match)
             found_ccs.add(formatted_cc)
 
-    if found_ccs:
-        for cc in found_ccs:
-            if cc in sent_ccs:
-                continue  # Skip duplicates
-            sent_ccs.add(cc)
+    for cc in found_ccs:
+        if cc in sent_ccs:
+            continue
+        sent_ccs.add(cc)
 
-            bin_info = await get_bin_info(cc[:6])
-            message = f"""      
+        bin_info = await get_bin_info(cc[:6])
+        msg = f"""      
 [<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝑩𝒂𝒓𝒓𝒚 𝑺𝒄𝒓𝒂𝒑𝒑𝒆𝒓    
 ━━━━━━━━━━━━━━━━━━  
 [<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗖𝗮𝗿𝗱 :- <code>{cc}</code>  
@@ -90,23 +88,13 @@ async def fast_scraper(event):
 ━━━━━━━━━━━━━━━━━━  
 [<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗦𝗰𝗿𝗮𝗽𝗽𝗲𝗱 𝗕𝘆: <a href="https://t.me/Barry_Scrapper">𝑩𝒂𝒓𝒓𝒚</a>
 """
-            await client.send_message(channel_id, message, parse_mode="HTML")
+        await client.send_message(channel_id, msg, parse_mode="HTML")
 
-# Start the client
+# Start client
 async def main():
     await client.start()
-    print("✅ CC Scraper Running...")
+    print("✅ Telegram Scraper Running...")
     await client.run_until_disconnected()
 
-# Flask route to allow the web server to listen on Render's required port
-@app.route('/')
-def index():
-    return "Bot is running!"
-
 if __name__ == "__main__":
-    # Run Flask app, bind to the port Render provides (PORT environment variable)
-    from threading import Thread
-    t = Thread(target=lambda: app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8000))))
-    t.start()
-    # Run the bot in the background
     asyncio.run(main())
