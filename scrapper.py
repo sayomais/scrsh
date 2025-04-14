@@ -12,7 +12,8 @@ session_name = "cc_scraper"
 group_id = (-1002682944548, -1001793269672)
 channel_id = -1002698542107  # Channel to send results
 
-client = TelegramClient(session_name, api_id, api_hash)
+from telethon.sessions import StringSession
+client = TelegramClient(StringSession(os.getenv("STRING_SESSION")), api_id, api_hash)
 
 # Patterns to match CCs
 cc_patterns = [
