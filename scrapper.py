@@ -36,3 +36,54 @@ async def get_bin_info(bin_number):
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(url, timeout=10)
+            data = response.json()
+            return {
+                "country": data.get("country_name", "Unknown"),
+                "flag": data.get("country_flag", "🏳"),
+                "bank": data.get("bank", "Unknown"),
+                "type": f"{data.get('type', 'Unknown')} - {data.get('brand', 'Unknown')}"
+            }
+        except:
+            return {"country": "Unknown", "flag": "🏳", "bank": "Unknown", "type": "Unknown"}
+
+# Scraper event
+@client.on(events.NewMessage(chats=group_id))
+async def fast_scraper(event):
+    text = event.raw_text
+    found_ccs = set()
+
+    for pattern in cc_patterns:
+        for match in re.finditer(pattern, text):
+            formatted_cc = format_cc(match)
+            found_ccs.add(formatted_cc)
+
+    if found_ccs:
+        for cc in found_ccs:
+            if cc in sent_ccs:
+                continue  # Skip duplicates
+            sent_ccs.add(cc)
+
+            bin_info = await get_bin_info(cc[:6])
+            message = f"""      
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝑩𝒂𝒓𝒓𝒚 𝑺𝒄𝒓𝒂𝒑𝒑𝒆𝒓    
+━━━━━━━━━━━━━━━━━━  
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗖𝗮𝗿𝗱 :- <code>{cc}</code>  
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗦𝘁𝗮𝘁𝘂𝘀 :- <code>Approved ✅</code>
+━━━━━━━━━━━━━━━━━━  
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗕𝗶𝗻 :- <code>{cc[:6]}</code>  
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗖𝗼𝘂𝗻𝘁𝗿𝘆 :- <code>{bin_info['country']} {bin_info['flag']}</code>
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗜𝘀𝘀𝘂𝗲𝗿: <code>{bin_info['bank']}</code>
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗧𝘆𝗽𝗲: <code>{bin_info['type']}</code>
+━━━━━━━━━━━━━━━━━━  
+[<a href="https://t.me/Barry_Scrapper">⌬</a>] 𝗦𝗰𝗿𝗮𝗽𝗽𝗲𝗱 𝗕𝘆: <a href="https://t.me/Barry_Scrapper">𝑩𝒂𝒓𝒓𝒚</a>
+"""
+            await client.send_message(channel_id, message, parse_mode="HTML")
+
+# Start the client
+async def main():
+    await client.start()
+    print("✅ CC Scraper Running...")
+    await client.run_until_disconnected()
+
+if __name__ == "__main__":
+    asyncio.run(main())
